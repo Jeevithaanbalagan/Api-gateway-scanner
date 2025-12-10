@@ -1,0 +1,45 @@
+# ==========================================
+# API Gateway Scanner - Updated Config
+# Auto OpenAPI Detection from Folder
+# ==========================================
+
+targets:
+  - "https://api.staging.example.com"
+  - "https://api2.staging.example.com"
+
+auth:
+  enabled: false
+  type: bearer
+  token: ""
+  api_key_name: ""
+  api_key_value: ""
+
+scan:
+  mode: passive
+  max_concurrent: 8
+  allow_destructive: false
+  timeout_seconds: 15
+  user_agent: "ags-scanner/0.2"
+
+# Auto-detect OpenAPI from folder
+openapi:
+  enabled: true
+  folder: "specs"      # Scanner will load any .yaml/.json inside this folder
+
+report:
+  output: "reports/scan.json"
+  html: true
+
+logging:
+  level: "info"
+  file: ""
+
+cors:
+  origin_test: "https://evil.example"
+
+security_headers:
+  - strict-transport-security
+  - content-security-policy
+  - x-frame-options
+  - x-content-type-options
+  - referrer-policy

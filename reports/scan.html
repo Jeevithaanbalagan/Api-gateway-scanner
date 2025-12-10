@@ -1,0 +1,37 @@
+
+<html><head><style>
+body{font-family:Arial;padding:20px;}
+.fail{background:#ffcccc;padding:3px;}
+.ok{background:#ccffcc;padding:3px;}
+table{width:100%;border-collapse:collapse;}
+td,th{border-bottom:1px solid #ddd;padding:8px;}
+</style></head><body>
+<h1>API Scan Report</h1>
+<p>Scan Time: 2025-12-10 22:14:49</p>
+<table>
+<tr><th>Method</th><th>URL</th><th>Check</th><th>Status</th><th>Description</th></tr>
+
+
+<tr>
+<td>GET</td>
+<td>https://api.staging.example.com/</td>
+<td>request_error</td>
+<td class="fail">
+FAIL</td>
+<td>[Errno 11001] getaddrinfo failed</td>
+</tr>
+
+
+
+<tr>
+<td>GET</td>
+<td>https://api.staging.example.com/status</td>
+<td>request_error</td>
+<td class="fail">
+FAIL</td>
+<td>[Errno 11001] getaddrinfo failed</td>
+</tr>
+
+
+</table>
+</body></html>

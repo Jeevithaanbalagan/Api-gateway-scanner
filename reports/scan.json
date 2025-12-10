@@ -1,0 +1,30 @@
+{
+  "scan_time": "2025-12-10 22:14:49",
+  "targets": [
+    "https://api.staging.example.com"
+  ],
+  "endpoints": [
+    {
+      "url": "https://api.staging.example.com/",
+      "method": "GET",
+      "checks": [
+        {
+          "name": "request_error",
+          "ok": false,
+          "description": "[Errno 11001] getaddrinfo failed"
+        }
+      ]
+    },
+    {
+      "url": "https://api.staging.example.com/status",
+      "method": "GET",
+      "checks": [
+        {
+          "name": "request_error",
+          "ok": false,
+          "description": "[Errno 11001] getaddrinfo failed"
+        }
+      ]
+    }
+  ]
+}

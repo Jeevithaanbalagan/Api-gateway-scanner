@@ -1,19 +1,54 @@
 openapi: "3.0.0"
 info:
-  title: Sample API
-  version: "0.1.0"
+  title: Sample User Management API
+  description: Demo API for security scanning
+  version: "1.0.0"
+
+servers:
+  - url: https://api.staging.example.com
 
 paths:
-  /:
+  /status:
     get:
-      summary: Root endpoint
+      summary: Health check endpoint
+      responses:
+        "200":
+          description: Service is running
+
+  /users:
+    get:
+      summary: List users
       responses:
         "200":
           description: OK
+    post:
+      summary: Create user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                email:
+                  type: string
+      responses:
+        "201":
+          description: Created
 
-  /status:
+  /users/{id}:
     get:
-      summary: Status Check
+      summary: Get user by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
       responses:
         "200":
-          description: Status OK
+          description: OK
+        "404":
+          description: Not Found

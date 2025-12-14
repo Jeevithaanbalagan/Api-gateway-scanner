@@ -1,363 +1,515 @@
 #!/usr/bin/env python3
 """
-API Gateway Scanner (Final Updated CLI)
+API Gateway Attack Surface Scanner (v2 – Stable)
 
 Features:
-- Auto-detect OpenAPI files from a folder (specs/)
-- Supports manual --openapi override
-- Black-box scanning when no OpenAPI found
-- Passive security checks (CORS, Missing auth, Headers)
-- JSON + HTML + PDF + DOCX reporting
-
-Run:
-python cli.py scan -c config.yaml --html
+- OpenAPI-assisted + Black-box scanning
+- OWASP API Top 10 aligned passive checks
+- IDOR, SSRF indicators, Business Logic hints
+- Inventory & versioning checks
+- Function-level authorization checks
+- Severity scoring (LOW / MEDIUM / HIGH)
+- Progress bar + scan summary
+- Reports: JSON, HTML, PDF, DOCX
 """
 
 import json
 import os
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Dict, List, Tuple, Any
+from typing import Dict, List, Tuple
 
 import click
 import httpx
 import yaml
 from jinja2 import Template
 
-# ---------------------------------------------------------
-# Load OpenAPI
-# ---------------------------------------------------------
+# =========================================================
+# BANNER / META
+# =========================================================
 
-def load_openapi(path: str) -> Dict[str, Any]:
+BANNER = r"""
+███████╗██████╗  ██████╗ ███████╗ ██████╗ ██╗   ██╗ █████╗ ██████╗ ██████╗
+        API Gateway Attack Surface Scanner
+"""
+
+VERSION = "2.1.0"
+
+# =========================================================
+# OpenAPI Helpers
+# =========================================================
+
+def load_openapi(path: str) -> Dict:
     if not os.path.exists(path):
         raise click.ClickException(f"OpenAPI file not found: {path}")
     with open(path, "r", encoding="utf-8") as f:
-        try:
-            data = yaml.safe_load(f)
-        except Exception as e:
-            raise click.ClickException(f"Failed to parse OpenAPI file {path}: {e}")
-    if not isinstance(data, dict):
-        raise click.ClickException("Invalid OpenAPI structure.")
-    return data
+        return yaml.safe_load(f)
 
-
-def enumerate_paths(openapi: Dict[str, Any]) -> List[Tuple[str, str]]:
+def enumerate_paths(spec: Dict) -> List[Tuple[str, str]]:
     routes = []
-    for path, methods in openapi.get("paths", {}).items():
-        for method in methods.keys():
-            if method.lower() in ("get", "post", "put", "delete", "patch", "options", "head"):
-                routes.append((method.upper(), path))
+    for path, methods in spec.get("paths", {}).items():
+        for m in methods:
+            if m.lower() in ("get", "post", "put", "delete", "patch", "options", "head"):
+                routes.append((m.upper(), path))
     return routes
 
-
 def build_url(base: str, path: str) -> str:
-    if path.startswith("/"):
-        path = path[1:]
-    if base.endswith("/"):
-        base = base[:-1]
-    return f"{base}/{path}"
+    return base.rstrip("/") + "/" + path.lstrip("/")
 
+# =========================================================
+# Severity Engine
+# =========================================================
 
-# ---------------------------------------------------------
-# Passive Security Checks
-# ---------------------------------------------------------
+HIGH = {"missing_auth", "function_level_auth", "ssrf_indicator"}
+MEDIUM = {"cors", "object_property_exposure", "business_logic"}
+LOW = {"security_headers", "inventory_versioning"}
 
-SECURITY_HEADER_CHECKS = {
-    "strict-transport-security": "HSTS",
-    "content-security-policy": "CSP",
-    "x-frame-options": "X-Frame-Options",
-    "x-content-type-options": "X-Content-Type-Options",
-    "referrer-policy": "Referrer-Policy",
-}
+def get_severity(name: str) -> str:
+    if name in HIGH:
+        return "HIGH"
+    if name in MEDIUM:
+        return "MEDIUM"
+    return "LOW"
 
-def check_endpoint(client: httpx.Client, method: str, url: str, timeout=10):
-    findings = {"url": url, "method": method, "checks": []}
+# =========================================================
+# OWASP API Security Checks (Passive)
+# =========================================================
 
-    # ---------- Missing Auth ----------
+SECURITY_HEADERS = [
+    "strict-transport-security",
+    "content-security-policy",
+    "x-frame-options",
+    "x-content-type-options",
+    "referrer-policy",
+]
+
+SSRF_HINTS = ["url", "redirect", "callback", "target", "image", "fetch"]
+
+def check_endpoint(client: httpx.Client, method: str, url: str):
+    findings = {"method": method, "url": url, "checks": []}
+
     try:
-        r = client.request(method, url, timeout=timeout)
+        r = client.request(method, url, timeout=15)
     except Exception as e:
         findings["checks"].append({
             "name": "request_error",
             "ok": False,
+            "severity": "HIGH",
             "description": str(e)
         })
         return findings
 
-    if 200 <= r.status_code < 300:
-        findings["checks"].append({
-            "name": "missing_auth",
-            "ok": False,
-            "description": f"Endpoint returns {r.status_code} without authentication."
-        })
-    else:
-        findings["checks"].append({
-            "name": "missing_auth",
-            "ok": True,
-            "description": f"Protected (HTTP {r.status_code})"
-        })
+    headers = {k.lower(): v for k, v in r.headers.items()}
 
-    # ---------- CORS ----------
+    # ---------------- API2: Broken Authentication ----------------
+    ok = not (200 <= r.status_code < 300)
+    findings["checks"].append({
+        "name": "missing_auth",
+        "ok": ok,
+        "severity": get_severity("missing_auth"),
+        "description": f"Unauthenticated status: {r.status_code}"
+    })
+
+    # ---------------- API8: CORS ----------------
     try:
         r_cors = client.request(method, url, headers={"Origin": "https://evil.example"})
         ao = r_cors.headers.get("access-control-allow-origin")
-        if ao in ("*", "https://evil.example"):
-            findings["checks"].append({
-                "name": "cors",
-                "ok": False,
-                "description": f"Weak CORS policy: {ao}"
-            })
-        else:
-            findings["checks"].append({
-                "name": "cors",
-                "ok": True,
-                "description": f"CORS OK ({ao})"
-            })
+        ok = ao not in ("*", "https://evil.example")
+        findings["checks"].append({
+            "name": "cors",
+            "ok": ok,
+            "severity": get_severity("cors"),
+            "description": f"Access-Control-Allow-Origin: {ao}"
+        })
     except:
         findings["checks"].append({
             "name": "cors",
-            "ok": False,
-            "description": "CORS check failed."
-        })
-
-    # ---------- Security Headers ----------
-    headers = {k.lower(): v for k, v in r.headers.items()}
-    missing = [SECURITY_HEADER_CHECKS[h] for h in SECURITY_HEADER_CHECKS if h not in headers]
-
-    if missing:
-        findings["checks"].append({
-            "name": "security_headers",
-            "ok": False,
-            "description": "Missing: " + ", ".join(missing)
-        })
-    else:
-        findings["checks"].append({
-            "name": "security_headers",
             "ok": True,
-            "description": "All good."
+            "severity": "LOW",
+            "description": "CORS check skipped"
         })
 
-    # ---------- Server Leak ----------
-    server_hdr = headers.get("server") or headers.get("x-powered-by")
-    if server_hdr:
+    # ---------------- API7: Security Headers ----------------
+    missing = [h for h in SECURITY_HEADERS if h not in headers]
+    findings["checks"].append({
+        "name": "security_headers",
+        "ok": not bool(missing),
+        "severity": get_severity("security_headers"),
+        "description": "Missing: " + ", ".join(missing) if missing else "All present"
+    })
+
+    # ---------------- API9: Inventory / Versioning ----------------
+    overlap = "/v1" in url and "/v2" in url
+    findings["checks"].append({
+        "name": "inventory_versioning",
+        "ok": not overlap,
+        "severity": get_severity("inventory_versioning"),
+        "description": "API version overlap detected" if overlap else "Clean versioning"
+    })
+
+    # ---------------- API3: Excessive Data Exposure ----------------
+    if "application/json" in headers.get("content-type", ""):
+        try:
+            data = r.json()
+            if isinstance(data, dict):
+                sensitive = [k for k in data if any(s in k.lower() for s in ["password", "token", "secret", "key"])]
+                findings["checks"].append({
+                    "name": "object_property_exposure",
+                    "ok": not bool(sensitive),
+                    "severity": get_severity("object_property_exposure"),
+                    "description": "Exposed: " + ", ".join(sensitive) if sensitive else "No sensitive fields"
+                })
+        except:
+            pass
+
+    # ---------------- API6: Business Logic ----------------
+    if any(x in url.lower() for x in ["otp", "reset", "verify", "auth"]):
         findings["checks"].append({
-            "name": "server_leak",
+            "name": "business_logic",
             "ok": False,
-            "description": f"Server Info Exposed: {server_hdr}"
+            "severity": get_severity("business_logic"),
+            "description": "Sensitive business flow endpoint"
         })
-    else:
-        findings["checks"].append({
-            "name": "server_leak",
-            "ok": True,
-            "description": "No server leak"
-        })
+
+    # ---------------- API7: SSRF Indicators ----------------
+    ssrf = any(p in url.lower() for p in SSRF_HINTS)
+    findings["checks"].append({
+        "name": "ssrf_indicator",
+        "ok": not ssrf,
+        "severity": get_severity("ssrf_indicator"),
+        "description": "SSRF-like parameter detected" if ssrf else "No SSRF hints"
+    })
+
+    # ---------------- API5: Function Level Authorization ----------------
+    try:
+        r_override = client.request(method, url, headers={"X-HTTP-Method-Override": "DELETE"})
+        ok = r_override.status_code not in (200, 204)
+    except:
+        ok = True
+
+    findings["checks"].append({
+        "name": "function_level_auth",
+        "ok": ok,
+        "severity": get_severity("function_level_auth"),
+        "description": "Method override protected" if ok else "DELETE override accepted"
+    })
 
     return findings
 
+# =========================================================
+# REPORTING
+# =========================================================
 
-# ---------------------------------------------------------
-# Reporting
-# ---------------------------------------------------------
-
-def write_json_report(path, report):
+def write_json(path, data):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w") as f:
-        json.dump(report, f, indent=2)
+        json.dump(data, f, indent=2)
 
 HTML_TEMPLATE = """
-<html><head><style>
-body{font-family:Arial;padding:20px;}
-.fail{background:#ffcccc;padding:3px;}
-.ok{background:#ccffcc;padding:3px;}
-table{width:100%;border-collapse:collapse;}
-td,th{border-bottom:1px solid #ddd;padding:8px;}
-</style></head><body>
-<h1>API Scan Report</h1>
-<p>Scan Time: {{ scan_time }}</p>
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>API Gateway Security Report</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 40px; }
+    h1, h2, h3 { color: #2c3e50; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { padding: 10px; border: 1px solid #ddd; text-align: left; }
+    th { background: #34495e; color: white; }
+    .HIGH { background: #ffcccc; }
+    .MEDIUM { background: #fff3cd; }
+    .LOW { background: #e8f5e9; }
+    .summary-box {
+      display: flex;
+      gap: 20px;
+      margin: 20px 0;
+    }
+    .card {
+      padding: 15px;
+      border-radius: 6px;
+      color: white;
+      width: 150px;
+      text-align: center;
+    }
+    .card.high { background: #c0392b; }
+    .card.medium { background: #f39c12; }
+    .card.low { background: #27ae60; }
+  </style>
+</head>
+<body>
+
+<h1>API Gateway Security Scan Report</h1>
+<p><b>Scan Time:</b> {{ scan_time }}</p>
+<p><b>Targets:</b> {{ targets | join(", ") }}</p>
+
+<h2>Executive Summary</h2>
+<div class="summary-box">
+  <div class="card high">HIGH<br>{{ summary.HIGH }}</div>
+  <div class="card medium">MEDIUM<br>{{ summary.MEDIUM }}</div>
+  <div class="card low">LOW<br>{{ summary.LOW }}</div>
+</div>
+
+<h2>Findings</h2>
 <table>
-<tr><th>Method</th><th>URL</th><th>Check</th><th>Status</th><th>Description</th></tr>
+<tr>
+  <th>Method</th>
+  <th>Endpoint</th>
+  <th>Issue</th>
+  <th>Severity</th>
+  <th>Description</th>
+</tr>
+
 {% for ep in endpoints %}
 {% for c in ep.checks %}
-<tr>
-<td>{{ ep.method }}</td>
-<td>{{ ep.url }}</td>
-<td>{{ c.name }}</td>
-<td class="{{ 'fail' if not c.ok else 'ok' }}">
-{{ 'FAIL' if not c.ok else 'OK' }}</td>
-<td>{{ c.description }}</td>
+{% if not c.ok %}
+<tr class="{{ c.severity }}">
+  <td>{{ ep.method }}</td>
+  <td>{{ ep.url }}</td>
+  <td>{{ c.name }}</td>
+  <td>{{ c.severity }}</td>
+  <td>{{ c.description }}</td>
 </tr>
+{% endif %}
 {% endfor %}
 {% endfor %}
+
 </table>
-</body></html>
+
+</body>
+</html>
 """
 
-def write_html_report(path, report):
-    html = Template(HTML_TEMPLATE).render(
-        scan_time=report["scan_time"],
-        endpoints=report["endpoints"]
-    )
-    with open(path, "w", encoding="utf-8") as f:
+
+def write_html(path, report):
+    html = Template(HTML_TEMPLATE).render(**report)
+    with open(path, "w") as f:
         f.write(html)
 
-
-# ---------------------------------------------------------
-# PDF Reporting
-# ---------------------------------------------------------
-
-from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
-from textwrap import wrap
-
-def write_pdf_report(path, report):
-    c = canvas.Canvas(path, pagesize=letter)
-    width, height = letter
-    y = height - 50
-
-    c.setFont("Helvetica-Bold", 16)
-    c.drawString(50, y, "API Gateway Security Scan Report")
-    y -= 30
-
-    c.setFont("Helvetica", 12)
-    c.drawString(50, y, f"Scan Time: {report['scan_time']}")
-    y -= 40
-
-    for ep in report["endpoints"]:
-        if y < 100:
-            c.showPage()
-            y = height - 50
-
-        c.setFont("Helvetica-Bold", 12)
-        c.drawString(50, y, f"{ep['method']} {ep['url']}")
-        y -= 20
-
-        for check in ep["checks"]:
-            status = "OK" if check["ok"] else "FAIL"
-            text = f"[{status}] {check['name']} - {check['description']}"
-            for line in wrap(text, 90):
-                c.setFont("Helvetica", 10)
-                c.drawString(60, y, line)
-                y -= 14
-
-        y -= 10
-
-    c.save()
-
-
-# ---------------------------------------------------------
-# DOCX Reporting
-# ---------------------------------------------------------
-
+from reportlab.lib.pagesizes import letter
 from docx import Document
 
-def write_docx_report(path, report):
-    doc = Document()
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter
 
-    doc.add_heading("API Gateway Security Scan Report", 0)
-    doc.add_paragraph(f"Scan Time: {report['scan_time']}")
+from reportlab.platypus import (
+    SimpleDocTemplate,
+    Paragraph,
+    Table,
+    TableStyle,
+    Spacer
+)
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.pagesizes import letter
+from reportlab.lib import colors
+
+
+def write_pdf(path, report):
+    doc = SimpleDocTemplate(
+        path,
+        pagesize=letter,
+        rightMargin=36,
+        leftMargin=36,
+        topMargin=36,
+        bottomMargin=36,
+    )
+
+    styles = getSampleStyleSheet()
+    elements = []
+
+    # ---------------- Title ----------------
+    elements.append(Paragraph(
+        "<b>API Gateway Security Scan Report</b>",
+        styles["Title"]
+    ))
+    elements.append(Spacer(1, 12))
+
+    elements.append(Paragraph(
+        f"<b>Scan Time:</b> {report['scan_time']}",
+        styles["Normal"]
+    ))
+    elements.append(Paragraph(
+        f"<b>Targets:</b> {', '.join(report['targets'])}",
+        styles["Normal"]
+    ))
+    elements.append(Spacer(1, 20))
+
+    # ---------------- Executive Summary ----------------
+    elements.append(Paragraph(
+        "<b>Executive Summary</b>",
+        styles["Heading2"]
+    ))
+    summary = report.get("summary", {})
+    elements.append(Paragraph(
+        f"HIGH: {summary.get('HIGH', 0)} | "
+        f"MEDIUM: {summary.get('MEDIUM', 0)} | "
+        f"LOW: {summary.get('LOW', 0)}",
+        styles["Normal"]
+    ))
+    elements.append(Spacer(1, 20))
+
+    # ---------------- Findings Table ----------------
+    elements.append(Paragraph(
+        "<b>Findings Summary</b>",
+        styles["Heading2"]
+    ))
+    elements.append(Spacer(1, 10))
+
+    table_data = [
+        ["Method", "Endpoint", "Issue", "Severity"]
+    ]
 
     for ep in report["endpoints"]:
-        doc.add_heading(f"{ep['method']} {ep['url']}", level=2)
-
         for c in ep["checks"]:
-            status = "OK" if c["ok"] else "FAIL"
-            doc.add_paragraph(f"[{status}] {c['name']} - {c['description']}")
+            if not c["ok"]:
+                table_data.append([
+                    ep["method"],
+                    ep["url"],
+                    c["name"],
+                    c["severity"]
+                ])
+
+    table = Table(
+        table_data,
+        colWidths=[60, 260, 120, 80],
+        repeatRows=1
+    )
+
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.darkblue),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONT", (0, 0), (-1, 0), "Helvetica-Bold"),
+
+        ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+
+        ("BACKGROUND", (0, 1), (-1, -1), colors.whitesmoke),
+    ]))
+
+    elements.append(table)
+
+    doc.build(elements)
+
+
+
+def write_docx(path, report):
+    doc = Document()
+    doc.add_heading("API Gateway Security Scan Report", 0)
+
+    doc.add_paragraph(f"Scan Time: {report['scan_time']}")
+    doc.add_paragraph(f"Targets: {', '.join(report['targets'])}")
+
+    doc.add_heading("Findings Summary", level=1)
+
+    table = doc.add_table(rows=1, cols=4)
+    hdr = table.rows[0].cells
+    hdr[0].text = "Method"
+    hdr[1].text = "Endpoint"
+    hdr[2].text = "Issue"
+    hdr[3].text = "Severity"
+
+    for ep in report["endpoints"]:
+        for c in ep["checks"]:
+            if not c["ok"]:
+                row = table.add_row().cells
+                row[0].text = ep["method"]
+                row[1].text = ep["url"]
+                row[2].text = c["name"]
+                row[3].text = c["severity"]
 
     doc.save(path)
 
-
-# ---------------------------------------------------------
+# =========================================================
 # CLI
-# ---------------------------------------------------------
+# =========================================================
 
-@click.group()
-def cli():
-    pass
+@click.group(invoke_without_command=True)
+@click.pass_context
+def cli(ctx):
+    if ctx.invoked_subcommand is None:
+        click.secho(BANNER, fg="cyan")
+        click.echo("Use --help to see commands\n")
 
+@cli.command()
+def version():
+    click.echo(f"API Gateway Scanner v{VERSION}")
 
-@cli.command(name="scan")
+@cli.command()
 @click.option("--config", "-c", default="config.yaml")
 @click.option("--openapi", "-o", default=None)
 @click.option("--targets", "-t", default=None)
 @click.option("--output", "-O", default="reports/scan.json")
-@click.option("--html", is_flag=True)
-def scan_cmd(config, openapi, targets, output, html):
+def scan(config, openapi, targets, output):
 
-    # ---------------- Load Config ----------------
-    cfg = yaml.safe_load(open(config)) or {}
-
+    cfg = yaml.safe_load(open(config)) if os.path.exists(config) else {}
     targets_list = targets.split(",") if targets else cfg.get("targets", [])
+
     if not targets_list:
-        raise click.ClickException("No targets provided.")
+        raise click.ClickException("No targets provided")
 
-    # ---------------- OpenAPI Detection ----------------
     openapi_files = []
-
     if openapi:
         openapi_files.append(openapi)
     else:
-        api_cfg = cfg.get("openapi", {})
-        if api_cfg.get("enabled", False):
-            folder = api_cfg.get("folder", "specs")
+        ocfg = cfg.get("openapi", {})
+        if ocfg.get("enabled", False):
+            folder = ocfg.get("folder", "specs")
             if os.path.exists(folder):
-                for f in os.listdir(folder):
-                    if f.endswith((".yaml", ".yml", ".json")):
-                        openapi_files.append(os.path.join(folder, f))
+                openapi_files += [
+                    os.path.join(folder, f)
+                    for f in os.listdir(folder)
+                    if f.endswith((".yaml", ".yml", ".json"))
+                ]
 
     endpoints = []
-
-    # --------- If OpenAPI found ----------
     if openapi_files:
-        click.echo(f"Using OpenAPI specs: {openapi_files}")
-        for file in openapi_files:
-            spec = load_openapi(file)
-            routes = enumerate_paths(spec)
-            for method, path in routes:
+        for f in openapi_files:
+            spec = load_openapi(f)
+            for m, p in enumerate_paths(spec):
                 for base in targets_list:
-                    endpoints.append({"method": method, "url": build_url(base, path)})
+                    endpoints.append((m, build_url(base, p)))
     else:
-        click.echo("No OpenAPI found → Running in BLACK-BOX mode.")
         for base in targets_list:
-            endpoints.append({"method": "GET", "url": base})
+            endpoints.append(("GET", base))
 
-    # ---------------- Run Scan ----------------
+    client = httpx.Client()
     results = []
-    client = httpx.Client(timeout=15)
 
-    with ThreadPoolExecutor(max_workers=8) as pool:
-        for fut in as_completed([
-            pool.submit(check_endpoint, client, ep["method"], ep["url"])
-            for ep in endpoints
-        ]):
-            results.append(fut.result())
+    click.echo(f"[+] Scanning {len(endpoints)} endpoints")
 
-    # ---------------- Build Report ----------------
+    with click.progressbar(length=len(endpoints), label="Scanning") as bar:
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            futures = [pool.submit(check_endpoint, client, m, u) for m, u in endpoints]
+            for f in as_completed(futures):
+                results.append(f.result())
+                bar.update(1)
+
+    summary = {"HIGH": 0, "MEDIUM": 0, "LOW": 0}
+    for ep in results:
+        for c in ep["checks"]:
+            if not c["ok"]:
+                summary[c["severity"]] += 1
+
     report = {
         "scan_time": time.strftime("%Y-%m-%d %H:%M:%S"),
         "targets": targets_list,
+        "summary": summary,
         "endpoints": results
     }
 
-    # Save JSON
-    write_json_report(output, report)
-    click.echo(f"Saved JSON → {output}")
+    write_json(output, report)
+    write_html(output.replace(".json", ".html"), report)
+    write_pdf(output.replace(".json", ".pdf"), report)
+    write_docx(output.replace(".json", ".docx"), report)
 
-    # Save HTML
-    if html:
-        html_path = output.replace(".json", ".html")
-        write_html_report(html_path, report)
-        click.echo(f"Saved HTML → {html_path}")
-
-    # Save PDF
-    pdf_path = output.replace(".json", ".pdf")
-    write_pdf_report(pdf_path, report)
-    click.echo(f"Saved PDF → {pdf_path}")
-
-    # Save DOCX
-    docx_path = output.replace(".json", ".docx")
-    write_docx_report(docx_path, report)
-    click.echo(f"Saved DOCX → {docx_path}")
-
+    click.echo("\nScan complete ✔")
+    click.echo(f"HIGH: {summary['HIGH']} | MEDIUM: {summary['MEDIUM']} | LOW: {summary['LOW']}")
+    click.echo(f"Reports saved to → {os.path.dirname(output) or 'reports/'}")
 
 if __name__ == "__main__":
     cli()

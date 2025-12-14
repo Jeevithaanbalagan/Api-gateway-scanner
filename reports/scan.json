@@ -1,27 +1,107 @@
 {
-  "scan_time": "2025-12-10 22:14:49",
+  "scan_time": "2025-12-14 15:43:15",
   "targets": [
-    "https://api.staging.example.com"
+    "https://api.staging.example.com",
+    "https://api2.staging.example.com"
   ],
+  "summary": {
+    "HIGH": 8,
+    "MEDIUM": 0,
+    "LOW": 0
+  },
   "endpoints": [
     {
-      "url": "https://api.staging.example.com/",
       "method": "GET",
+      "url": "https://api.staging.example.com/status",
       "checks": [
         {
           "name": "request_error",
           "ok": false,
+          "severity": "HIGH",
           "description": "[Errno 11001] getaddrinfo failed"
         }
       ]
     },
     {
-      "url": "https://api.staging.example.com/status",
-      "method": "GET",
+      "method": "POST",
+      "url": "https://api2.staging.example.com/users",
       "checks": [
         {
           "name": "request_error",
           "ok": false,
+          "severity": "HIGH",
+          "description": "[Errno 11001] getaddrinfo failed"
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "url": "https://api.staging.example.com/users",
+      "checks": [
+        {
+          "name": "request_error",
+          "ok": false,
+          "severity": "HIGH",
+          "description": "[Errno 11001] getaddrinfo failed"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "url": "https://api.staging.example.com/users",
+      "checks": [
+        {
+          "name": "request_error",
+          "ok": false,
+          "severity": "HIGH",
+          "description": "[Errno 11001] getaddrinfo failed"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "url": "https://api2.staging.example.com/status",
+      "checks": [
+        {
+          "name": "request_error",
+          "ok": false,
+          "severity": "HIGH",
+          "description": "[Errno 11001] getaddrinfo failed"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "url": "https://api2.staging.example.com/users/{id}",
+      "checks": [
+        {
+          "name": "request_error",
+          "ok": false,
+          "severity": "HIGH",
+          "description": "[Errno 11001] getaddrinfo failed"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "url": "https://api2.staging.example.com/users",
+      "checks": [
+        {
+          "name": "request_error",
+          "ok": false,
+          "severity": "HIGH",
+          "description": "[Errno 11001] getaddrinfo failed"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "url": "https://api.staging.example.com/users/{id}",
+      "checks": [
+        {
+          "name": "request_error",
+          "ok": false,
+          "severity": "HIGH",
           "description": "[Errno 11001] getaddrinfo failed"
         }
       ]

@@ -1,0 +1,10 @@
+Metadata-Version: 2.4
+Name: api-gateway-scanner
+Version: 1.0.0
+Requires-Dist: click
+Requires-Dist: httpx
+Requires-Dist: pyyaml
+Requires-Dist: jinja2
+Requires-Dist: reportlab
+Requires-Dist: python-docx
+Dynamic: requires-dist

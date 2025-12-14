@@ -1,37 +1,157 @@
 
-<html><head><style>
-body{font-family:Arial;padding:20px;}
-.fail{background:#ffcccc;padding:3px;}
-.ok{background:#ccffcc;padding:3px;}
-table{width:100%;border-collapse:collapse;}
-td,th{border-bottom:1px solid #ddd;padding:8px;}
-</style></head><body>
-<h1>API Scan Report</h1>
-<p>Scan Time: 2025-12-10 22:14:49</p>
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>API Gateway Security Report</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 40px; }
+    h1, h2, h3 { color: #2c3e50; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { padding: 10px; border: 1px solid #ddd; text-align: left; }
+    th { background: #34495e; color: white; }
+    .HIGH { background: #ffcccc; }
+    .MEDIUM { background: #fff3cd; }
+    .LOW { background: #e8f5e9; }
+    .summary-box {
+      display: flex;
+      gap: 20px;
+      margin: 20px 0;
+    }
+    .card {
+      padding: 15px;
+      border-radius: 6px;
+      color: white;
+      width: 150px;
+      text-align: center;
+    }
+    .card.high { background: #c0392b; }
+    .card.medium { background: #f39c12; }
+    .card.low { background: #27ae60; }
+  </style>
+</head>
+<body>
+
+<h1>API Gateway Security Scan Report</h1>
+<p><b>Scan Time:</b> 2025-12-14 15:43:15</p>
+<p><b>Targets:</b> https://api.staging.example.com, https://api2.staging.example.com</p>
+
+<h2>Executive Summary</h2>
+<div class="summary-box">
+  <div class="card high">HIGH<br>8</div>
+  <div class="card medium">MEDIUM<br>0</div>
+  <div class="card low">LOW<br>0</div>
+</div>
+
+<h2>Findings</h2>
 <table>
-<tr><th>Method</th><th>URL</th><th>Check</th><th>Status</th><th>Description</th></tr>
-
-
 <tr>
-<td>GET</td>
-<td>https://api.staging.example.com/</td>
-<td>request_error</td>
-<td class="fail">
-FAIL</td>
-<td>[Errno 11001] getaddrinfo failed</td>
+  <th>Method</th>
+  <th>Endpoint</th>
+  <th>Issue</th>
+  <th>Severity</th>
+  <th>Description</th>
 </tr>
 
 
 
-<tr>
-<td>GET</td>
-<td>https://api.staging.example.com/status</td>
-<td>request_error</td>
-<td class="fail">
-FAIL</td>
-<td>[Errno 11001] getaddrinfo failed</td>
+
+<tr class="HIGH">
+  <td>GET</td>
+  <td>https://api.staging.example.com/status</td>
+  <td>request_error</td>
+  <td>HIGH</td>
+  <td>[Errno 11001] getaddrinfo failed</td>
 </tr>
+
+
+
+
+
+<tr class="HIGH">
+  <td>POST</td>
+  <td>https://api2.staging.example.com/users</td>
+  <td>request_error</td>
+  <td>HIGH</td>
+  <td>[Errno 11001] getaddrinfo failed</td>
+</tr>
+
+
+
+
+
+<tr class="HIGH">
+  <td>POST</td>
+  <td>https://api.staging.example.com/users</td>
+  <td>request_error</td>
+  <td>HIGH</td>
+  <td>[Errno 11001] getaddrinfo failed</td>
+</tr>
+
+
+
+
+
+<tr class="HIGH">
+  <td>GET</td>
+  <td>https://api.staging.example.com/users</td>
+  <td>request_error</td>
+  <td>HIGH</td>
+  <td>[Errno 11001] getaddrinfo failed</td>
+</tr>
+
+
+
+
+
+<tr class="HIGH">
+  <td>GET</td>
+  <td>https://api2.staging.example.com/status</td>
+  <td>request_error</td>
+  <td>HIGH</td>
+  <td>[Errno 11001] getaddrinfo failed</td>
+</tr>
+
+
+
+
+
+<tr class="HIGH">
+  <td>GET</td>
+  <td>https://api2.staging.example.com/users/{id}</td>
+  <td>request_error</td>
+  <td>HIGH</td>
+  <td>[Errno 11001] getaddrinfo failed</td>
+</tr>
+
+
+
+
+
+<tr class="HIGH">
+  <td>GET</td>
+  <td>https://api2.staging.example.com/users</td>
+  <td>request_error</td>
+  <td>HIGH</td>
+  <td>[Errno 11001] getaddrinfo failed</td>
+</tr>
+
+
+
+
+
+<tr class="HIGH">
+  <td>GET</td>
+  <td>https://api.staging.example.com/users/{id}</td>
+  <td>request_error</td>
+  <td>HIGH</td>
+  <td>[Errno 11001] getaddrinfo failed</td>
+</tr>
+
+
 
 
 </table>
-</body></html>
+
+</body>
+</html>

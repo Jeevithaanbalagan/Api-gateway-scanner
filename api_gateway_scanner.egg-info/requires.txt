@@ -2,5 +2,3 @@ click
 httpx
 pyyaml
 jinja2
-reportlab
-python-docx

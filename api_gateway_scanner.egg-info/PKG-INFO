@@ -1,10 +1,9 @@
 Metadata-Version: 2.4
 Name: api-gateway-scanner
-Version: 1.0.0
+Version: 3.1.0
+Summary: API Gateway Attack Surface Scanner
+Requires-Python: >=3.9
 Requires-Dist: click
 Requires-Dist: httpx
 Requires-Dist: pyyaml
 Requires-Dist: jinja2
-Requires-Dist: reportlab
-Requires-Dist: python-docx
-Dynamic: requires-dist

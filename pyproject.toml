@@ -1,0 +1,14 @@
+[project]
+name = "api-gateway-scanner"
+version = "3.1.0"
+description = "API Gateway Attack Surface Scanner"
+requires-python = ">=3.9"
+dependencies = [
+  "click",
+  "httpx",
+  "pyyaml",
+  "jinja2"
+]
+
+[project.scripts]
+api-gateway-scanner = "scanner.cli:cli"

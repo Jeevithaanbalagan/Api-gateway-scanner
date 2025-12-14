@@ -1,5 +1,5 @@
 README.md
-cli.py
+pyproject.toml
 setup.py
 api_gateway_scanner.egg-info/PKG-INFO
 api_gateway_scanner.egg-info/SOURCES.txt

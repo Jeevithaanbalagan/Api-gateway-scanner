@@ -1,2 +1,2 @@
 [console_scripts]
-ags = cli:cli
+api-gateway-scanner = scanner.cli:cli

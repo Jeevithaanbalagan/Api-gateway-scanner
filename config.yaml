@@ -4,8 +4,7 @@
 # ==========================================
 
 targets:
-  - "https://api.staging.example.com"
-  - "https://api2.staging.example.com"
+  - "http://localhost:8000/api/"
 
 auth:
   enabled: false

@@ -1,24 +1,80 @@
-# 🚀 API Gateway Security Scanner  
-A lightweight, CLI-based security scanner designed to identify vulnerabilities in API Gateways using both **Black-Box** and **OpenAPI-assisted** scanning techniques.
 
-This tool performs automated security checks such as **Missing Authentication**, **CORS misconfiguration**, **Security Header validation**, and **Server Information Leakage**.  
-It exports results as **JSON**, **HTML**, **PDF**, and **Word (.docx)** reports.
+# 🚀 API Gateway Attack Surface Scanner
+
+A **CLI-based API security scanner** designed to identify **OWASP API Top 10 risks** at the **API Gateway and backend API layer** using both **Black-Box** and **OpenAPI-assisted** scanning techniques.
+
+The tool performs **safe, passive security checks** and generates **professional, audit-ready reports**, with **Markdown as the primary reporting format**.
 
 ---
 
-## 🔥 Key Highlights
+## 🎯 Purpose of This Tool
 
-- **✔ Auto-detects OpenAPI specs** from a folder (e.g., `specs/`)
-- **✔ Black-box mode** (no API documentation needed)
-- **✔ Passive vulnerability scanning**
-- **✔ Generates professional reports:**
-  - JSON  
-  - HTML  
-  - PDF  
-  - DOCX  
-- **✔ CLI-based — No GUI required**
-- **✔ Safe for production (no destructive tests)**
-- **✔ Extensible design**
+Modern applications heavily rely on APIs exposed through **API Gateways** (AWS API Gateway, Kong, Apigee, NGINX, etc.).
+Misconfigurations at this layer can lead to:
+
+* Authentication bypass
+* Excessive data exposure
+* CORS abuse
+* SSRF entry points
+* Broken function-level authorization
+* Poor API inventory management
+
+This tool helps **security engineers, developers, and students** quickly understand the **API attack surface** and highlight **high-risk misconfigurations** early.
+
+---
+
+## ✨ Key Highlights
+
+* ✔ **OpenAPI-assisted scanning** (Swagger / OpenAPI 3.x)
+* ✔ **Black-Box scanning** when documentation is unavailable
+* ✔ **OWASP API Top 10 aligned checks**
+* ✔ **Passive & non-destructive** (safe for staging/production)
+* ✔ **Severity classification** (HIGH / MEDIUM / LOW)
+* ✔ **Markdown-first professional reporting**
+* ✔ **CLI-only (automation & CI/CD friendly)**
+* ✔ **Progress bar + executive summary**
+* ✔ **Extensible architecture**
+
+---
+
+## 🧠 How It Works
+
+### 1️⃣ Endpoint Discovery
+
+* **OpenAPI Mode**
+  Endpoints are extracted from `.yaml`, `.yml`, or `.json` OpenAPI files.
+
+* **Black-Box Mode**
+  If OpenAPI is unavailable, the scanner tests base URLs directly.
+
+---
+
+### 2️⃣ Passive Security Checks
+
+Each discovered endpoint is tested using **safe HTTP requests only**.
+
+| Category                     | Description                           |
+| ---------------------------- | ------------------------------------- |
+| Broken Authentication        | Detects unauthenticated 2xx responses |
+| Function-Level Authorization | Detects method override issues        |
+| Excessive Data Exposure      | Identifies sensitive fields in JSON   |
+| CORS Misconfiguration        | Wildcard or reflected origins         |
+| Security Headers             | Missing HSTS, CSP, XFO, etc.          |
+| Business Logic Indicators    | OTP, reset, verify endpoints          |
+| SSRF Indicators              | URL-like parameters                   |
+| Inventory / Versioning       | Version overlap & hygiene             |
+
+---
+
+### 3️⃣ Severity Engine
+
+Each finding is automatically classified:
+
+| Severity   | Meaning                                 |
+| ---------- | --------------------------------------- |
+| **HIGH**   | Auth bypass, SSRF, function-level auth  |
+| **MEDIUM** | CORS issues, data exposure, logic risks |
+| **LOW**    | Missing headers, versioning hygiene     |
 
 ---
 
@@ -27,71 +83,35 @@ It exports results as **JSON**, **HTML**, **PDF**, and **Word (.docx)** reports.
 ```
 api-gateway-scanner/
 │
-├── cli.py                # Main scanner CLI
-├── config.yaml           # Configuration file
-├── specs/                # OpenAPI files auto-detected here
-├── reports/              # Output reports generated here
-└── venv/                 # Optional virtual environment
+├── cli.py              # Main CLI scanner
+├── config.yaml         # Configuration file
+├── specs/              # OpenAPI specs (optional)
+│   └── api.yaml
+├── reports/            # Generated reports
+│   ├── scan.json
+│   ├── scan.md
+│   └── scan.html
+└── README.md
 ```
-
----
-
-## 🧠 How It Works
-
-The scanner performs the following:
-
-### **1️⃣ Endpoint Discovery**
-- If OpenAPI is enabled → reads endpoints from `.yaml`/`.json` files.
-- If no OpenAPI exists → scanner runs in **Black-Box Mode**, testing only base URLs.
-
-### **2️⃣ Passive Security Checks**
-Each endpoint is tested for:
-
-| Check Type | Description |
-|------------|-------------|
-| **Missing Authentication** | Returns 2xx without authentication |
-| **CORS Misconfiguration** | Detects wildcard or reflected origins |
-| **Security Header Validation** | Checks for missing HSTS, CSP, XFO, etc. |
-| **Server Information Leak** | Detects `Server` or `X-Powered-By` exposure |
-
-### **3️⃣ Reporting Engine**
-After scanning, the tool produces four reports:
-
-| Format | Description |
-|--------|-------------|
-| **JSON** | Machine-readable output |
-| **HTML** | Human-friendly UI table |
-| **PDF** | Clean, sharable security report |
-| **DOCX** | Word report for documentation |
 
 ---
 
 ## ⚙️ Installation
 
-### 1. Clone Repository
-```bash
-git clone https://github.com/yourname/api-gateway-scanner
-cd api-gateway-scanner
-```
+### 1️⃣ Prerequisites
 
-### 2. Create Virtual Environment (Optional but recommended)
-```bash
-python -m venv venv
-venv/Scripts/activate   # Windows
-# OR
-source venv/bin/activate   # Linux/Mac
-```
+* Python **3.9+**
+* Internet access to target APIs
 
-### 3. Install Dependencies
+### 2️⃣ Install Dependencies
+
 ```bash
-pip install click httpx pyyaml jinja2 reportlab python-docx
+pip install click httpx pyyaml jinja2
 ```
 
 ---
 
 ## 📝 Configuration (`config.yaml`)
-
-Example:
 
 ```yaml
 targets:
@@ -100,96 +120,99 @@ targets:
 openapi:
   enabled: true
   folder: "specs"
-
-scan:
-  mode: passive
-  max_concurrent: 8
-  allow_destructive: false
-
-report:
-  output: "reports/scan.json"
-  html: true
 ```
 
-### **OpenAPI Auto-detection**
-Any `.yaml`, `.yml`, or `.json` file inside the folder:
+### 🔍 OpenAPI Auto-Detection
+
+Any file inside `specs/` with extensions:
 
 ```
-specs/
-├── api.yaml
-├── users.yaml
-└── orders.json
+.yaml
+.yml
+.json
 ```
 
-will be automatically used as documentation for endpoint discovery.
+will be automatically used for endpoint discovery.
 
 ---
 
 ## 🚀 Running the Scanner
 
-### **1️⃣ Black-Box Scan (no OpenAPI required)**
+### 🔹 Show Help
+
 ```bash
-python cli.py scan -c config.yaml --html
+python cli.py --help
 ```
 
-### **2️⃣ Scan Using OpenAPI**
+### 🔹 Show Version
+
 ```bash
-python cli.py scan --openapi specs/api.yaml --html
+python cli.py version
 ```
 
-### **3️⃣ Auto OpenAPI Detection (recommended)**
-If enabled in config:
+---
+
+### 🔹 Black-Box Scan
+
+```bash
+python cli.py scan --targets https://api.example.com
+```
+
+---
+
+### 🔹 Scan Using OpenAPI
+
+```bash
+python cli.py scan --openapi specs/api.yaml --targets https://api.example.com
+```
+
+---
+
+### 🔹 Scan Using Config File (Recommended)
+
 ```bash
 python cli.py scan -c config.yaml
-```
 
-### **4️⃣ View Reports**
+---
+
+## 📊 Output Reports
+
+After scanning:
+
 ```
 reports/
- ├── scan.json
- ├── scan.html
- ├── scan.pdf
- └── scan.docx
-```
-
-Open them directly:
-
-```bash
-start reports/scan.html
-start reports/scan.pdf
-start reports/scan.docx
+├── scan.json   # Automation / CI
+├── scan.md     # PRIMARY security report
+└── scan.html   # Rendered view
 ```
 
 ---
 
-## 📊 Report Formats
+## 📄 Report Formats
 
-### **HTML Report**
-- Color-coded pass/fail table  
-- Easy to read and share  
+### 🟢 Markdown Report (Primary)
 
-### **PDF Report**
-- Clean security audit layout  
-- Ideal for management & compliance teams  
+* Clean, audit-ready format
+* Ideal for:
 
-### **DOCX Report**
-- Easy to edit and customize  
+  * Security reports
+  * GitHub
+  * Documentation
+  * Pandoc → PDF if needed
 
----
+### 🟢 HTML Report
 
-## 🛠 Supported Checks
+* Color-coded severity
+* Easy sharing with stakeholders
 
-| Category | Description |
-|---------|-------------|
-| **Auth Checks** | Detects missing or weak authentication |
-| **CORS Checks** | Detects insecure `Access-Control-Allow-Origin` |
-| **Header Checks** | Ensures presence of security headers |
-| **Server Disclosure** | Detects server information leaks |
-| **Passive Only** | No destructive payloads or fuzzing |
+### 🟢 JSON Report
+
+* Machine-readable
+* CI/CD & automation friendly
 
 ---
 
-## 🧪 Example Output Snippet
+## 🧪 Example Finding (JSON)
 
 ```json
 {
@@ -199,12 +222,8 @@ start reports/scan.docx
     {
       "name": "missing_auth",
       "ok": false,
-      "description": "Unauthenticated request returned 200"
-    },
-    {
-      "name": "cors",
-      "ok": false,
-      "description": "Weak CORS policy: *"
+      "severity": "HIGH",
+      "description": "Unauthenticated status code: 200"
     }
   ]
 }
@@ -212,27 +231,52 @@ start reports/scan.docx
 
 ---
 
+## 🛡️ What This Tool IS
+
+✔ API attack surface visibility tool
+✔ Pre-assessment security scanner
+✔ OWASP API Top 10 learning project
+✔ CI/CD security integration candidate
+
+---
+
+## 🚫 What This Tool Is NOT
+
+❌ Not an exploitation framework
+❌ Not a fuzzer
+❌ Not a replacement for manual pentesting
+
+---
+
 ## 🔮 Future Enhancements (Roadmap)
 
-- Active scanning mode  
-- Rate-limit bypass detection  
-- API-key brute force simulation  
-- JWT validation testing  
-- SSRF & Redirect testing  
-- Webhook-based outbound detection  
-- Severity scoring (CVSS-like)  
-- Dashboard UI (optional)
+* SARIF export (GitHub Security tab)
+* Auth profile testing (JWT / API Keys)
+* Risk scoring per endpoint
+* CI/CD pipeline integration
+* Markdown → PDF via Pandoc
+* Active scanning (opt-in mode)
+* Rate-limit & abuse detection
 
 ---
 
-## 🤝 Contributing
+## ⚠️ Legal Disclaimer
 
-Pull requests are welcome!
+This tool is intended **only for authorized security testing**.
 
-Before contributing:
-1. Fork the repo  
-2. Create feature branch  
-3. Open PR with description  
+Always obtain **written permission** before scanning any API.
+The author is **not responsible for misuse**.
 
 ---
+
+## ⭐ Final Note
+
+If you understand this tool end-to-end, you already understand:
+
+* API Gateway security
+* OWASP API Top 10
+* Real-world API attack surfaces
+* Professional security reporting
+
+That’s **industry-level skill** 💪
 

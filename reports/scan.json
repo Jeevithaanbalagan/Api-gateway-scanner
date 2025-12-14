@@ -1,108 +1,150 @@
 {
-  "scan_time": "2025-12-14 15:43:15",
+  "scan_time": "2025-12-14 20:17:52",
   "targets": [
-    "https://api.staging.example.com",
-    "https://api2.staging.example.com"
+    "http://preview.owasp-juice.shop/api/Challenges"
   ],
-  "summary": {
-    "HIGH": 8,
-    "MEDIUM": 0,
-    "LOW": 0
-  },
   "endpoints": [
     {
       "method": "GET",
-      "url": "https://api.staging.example.com/status",
+      "url": "http://preview.owasp-juice.shop/api/Challenges/users",
       "checks": [
         {
-          "name": "request_error",
+          "name": "missing_auth",
+          "ok": true,
+          "description": "Unauthenticated status: 401"
+        },
+        {
+          "name": "cors",
           "ok": false,
-          "severity": "HIGH",
-          "description": "[Errno 11001] getaddrinfo failed"
+          "description": "Access-Control-Allow-Origin: *"
+        },
+        {
+          "name": "security_headers",
+          "ok": false,
+          "description": "Missing: strict-transport-security, content-security-policy, referrer-policy"
+        },
+        {
+          "name": "inventory_versioning",
+          "ok": true,
+          "description": "Clean versioning"
+        },
+        {
+          "name": "ssrf_indicator",
+          "ok": true,
+          "description": "No SSRF hints"
+        },
+        {
+          "name": "function_level_auth",
+          "ok": true,
+          "description": "Override status: 401"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "url": "http://preview.owasp-juice.shop/api/Challenges/status",
+      "checks": [
+        {
+          "name": "missing_auth",
+          "ok": true,
+          "description": "Unauthenticated status: 401"
+        },
+        {
+          "name": "cors",
+          "ok": false,
+          "description": "Access-Control-Allow-Origin: *"
+        },
+        {
+          "name": "security_headers",
+          "ok": false,
+          "description": "Missing: strict-transport-security, content-security-policy, referrer-policy"
+        },
+        {
+          "name": "inventory_versioning",
+          "ok": true,
+          "description": "Clean versioning"
+        },
+        {
+          "name": "ssrf_indicator",
+          "ok": true,
+          "description": "No SSRF hints"
+        },
+        {
+          "name": "function_level_auth",
+          "ok": true,
+          "description": "Override status: 401"
         }
       ]
     },
     {
       "method": "POST",
-      "url": "https://api2.staging.example.com/users",
+      "url": "http://preview.owasp-juice.shop/api/Challenges/users",
       "checks": [
         {
-          "name": "request_error",
-          "ok": false,
-          "severity": "HIGH",
-          "description": "[Errno 11001] getaddrinfo failed"
-        }
-      ]
-    },
-    {
-      "method": "POST",
-      "url": "https://api.staging.example.com/users",
-      "checks": [
+          "name": "missing_auth",
+          "ok": true,
+          "description": "Unauthenticated status: 401"
+        },
         {
-          "name": "request_error",
+          "name": "cors",
           "ok": false,
-          "severity": "HIGH",
-          "description": "[Errno 11001] getaddrinfo failed"
-        }
-      ]
-    },
-    {
-      "method": "GET",
-      "url": "https://api.staging.example.com/users",
-      "checks": [
+          "description": "Access-Control-Allow-Origin: *"
+        },
         {
-          "name": "request_error",
+          "name": "security_headers",
           "ok": false,
-          "severity": "HIGH",
-          "description": "[Errno 11001] getaddrinfo failed"
-        }
-      ]
-    },
-    {
-      "method": "GET",
-      "url": "https://api2.staging.example.com/status",
-      "checks": [
+          "description": "Missing: strict-transport-security, content-security-policy, referrer-policy"
+        },
         {
-          "name": "request_error",
-          "ok": false,
-          "severity": "HIGH",
-          "description": "[Errno 11001] getaddrinfo failed"
+          "name": "inventory_versioning",
+          "ok": true,
+          "description": "Clean versioning"
+        },
+        {
+          "name": "ssrf_indicator",
+          "ok": true,
+          "description": "No SSRF hints"
+        },
+        {
+          "name": "function_level_auth",
+          "ok": true,
+          "description": "Override status: 401"
         }
       ]
     },
     {
       "method": "GET",
-      "url": "https://api2.staging.example.com/users/{id}",
+      "url": "http://preview.owasp-juice.shop/api/Challenges/users/{id}",
       "checks": [
         {
-          "name": "request_error",
-          "ok": false,
-          "severity": "HIGH",
-          "description": "[Errno 11001] getaddrinfo failed"
-        }
-      ]
-    },
-    {
-      "method": "GET",
-      "url": "https://api2.staging.example.com/users",
-      "checks": [
+          "name": "missing_auth",
+          "ok": true,
+          "description": "Unauthenticated status: 401"
+        },
         {
-          "name": "request_error",
+          "name": "cors",
           "ok": false,
-          "severity": "HIGH",
-          "description": "[Errno 11001] getaddrinfo failed"
-        }
-      ]
-    },
-    {
-      "method": "GET",
-      "url": "https://api.staging.example.com/users/{id}",
-      "checks": [
+          "description": "Access-Control-Allow-Origin: *"
+        },
         {
-          "name": "request_error",
+          "name": "security_headers",
           "ok": false,
-          "severity": "HIGH",
-          "description": "[Errno 11001] getaddrinfo failed"
+          "description": "Missing: strict-transport-security, content-security-policy, referrer-policy"
+        },
+        {
+          "name": "inventory_versioning",
+          "ok": true,
+          "description": "Clean versioning"
+        },
+        {
+          "name": "ssrf_indicator",
+          "ok": true,
+          "description": "No SSRF hints"
+        },
+        {
+          "name": "function_level_auth",
+          "ok": true,
+          "description": "Override status: 401"
         }
       ]
     }
